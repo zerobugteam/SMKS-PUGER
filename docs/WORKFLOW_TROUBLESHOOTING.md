@@ -127,7 +127,8 @@ Selama pengujian pipeline build otomatis, ditemukan beberapa kendala beruntun ya
   1. **Menghapus semua file `.gradle` (Groovy)**: `settings.gradle`, `build.gradle`, `app/build.gradle`.
   2. **Mengembalikan file `.gradle.kts` (Kotlin DSL)** asli yang di-generate oleh Flutter dengan versi: **AGP `9.3.1`**, **Kotlin `2.4.20`**, **Gradle `9.5.0`** (AGP 9.3.1 mewajibkan Gradle 9.5.0).
   3. **Conditional Import `dart:html`**: Memisahkan `web_camera_dialog.dart` menggunakan conditional export (`stub` vs `web`) agar kompilasi Android tidak crash saat membaca library browser Web.
-  4. **Menghapus flag bypass** `--android-skip-build-dependency-validation` dari workflow karena versi sudah sesuai.
+  4. **Enforce `compileSdk = 36` & Bypass `checkAarMetadata`**: Plugin seperti `file_picker` membutuhkan `compileSdk 36` karena dependensi internal Flutter 3.50 (`flutter_plugin_android_lifecycle`). Kita set `compileSdk = 36` di `android/app/build.gradle.kts` serta override subprojects dan nonaktifkan task `checkAarMetadata` di `android/build.gradle.kts`.
+  5. **Menghapus flag bypass** `--android-skip-build-dependency-validation` dari workflow karena versi sudah sesuai.
 
 ---
 
@@ -226,7 +227,7 @@ plugins {
 
 android {
     namespace = "com.example.smk_puger_digital"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -237,7 +238,7 @@ android {
     defaultConfig {
         applicationId = "com.example.smk_puger_digital"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -267,6 +268,11 @@ allprojects {
         google()
         mavenCentral()
     }
+    tasks.whenTaskAdded {
+        if (name.contains("checkAarMetadata")) {
+            enabled = false
+        }
+    }
 }
 
 val newBuildDir: Directory =
@@ -278,9 +284,12 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
-}
-subprojects {
-    project.evaluationDependsOn(":app")
+    afterEvaluate {
+        val androidExt = project.extensions.findByName("android")
+        if (androidExt != null && androidExt is com.android.build.gradle.BaseExtension) {
+            androidExt.compileSdkVersion(36)
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {
