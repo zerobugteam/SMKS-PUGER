@@ -122,12 +122,17 @@ Selama pengujian pipeline build otomatis, ditemukan beberapa kendala beruntun ya
   A problem occurred evaluating root project 'android'.
   > 'com.android.build.api.dsl.ApplicationDefaultConfig com.android.build.api.dsl.ApplicationExtension.getDefaultConfig()'
   ```
-* **Penyebab**: Blok lama `subprojects { project.evaluationDependsOn(":app") }` di root `android/build.gradle` memaksa Gradle mengevaluasi modul `:app` lebih awal secara tidak sinkron sebelum subproject selesai dikonfigurasi. Pada AGP modern (8.x+), pemanggilan prematur ini memicu error internal `ApplicationExtension.getDefaultConfig()`.
-* **Solusi**: Menghapus blok `subprojects { project.evaluationDependsOn(":app") }` dari `android/build.gradle`. Gradle modern sudah otomatis mengelola dependensi antar modul secara deklaratif.
+* **Penyebab Sebenarnya**: Semua masalah 4–8 di atas ternyata berakar dari satu masalah fundamental: **project ini memiliki dua set file konfigurasi Gradle yang saling bertabrakan** — file Groovy (`.gradle`) dan file Kotlin DSL (`.gradle.kts`). File `.gradle.kts` asli yang di-generate oleh Flutter berisi versi yang benar (AGP 9.3.1, Kotlin 2.4.20, Gradle 9.3.1), sedangkan file `.gradle` lama menggunakan versi usang (AGP 7.3.0, Kotlin 1.7.10, Gradle 7.6.3). Ketika kedua format ada, Gradle memprioritaskan `.gradle.kts`. Ketika `.gradle.kts` dihapus, `.gradle` yang digunakan malah inkompatibel dengan Flutter 3.50.0 stable.
+* **Solusi Final**:
+  1. **Menghapus semua file `.gradle` (Groovy)**: `settings.gradle`, `build.gradle`, `app/build.gradle`.
+  2. **Mengembalikan file `.gradle.kts` (Kotlin DSL)** asli yang di-generate oleh Flutter dengan versi: **AGP `9.3.1`**, **Kotlin `2.4.20`**, **Gradle `9.3.1`**.
+  3. **Menghapus flag bypass** `--android-skip-build-dependency-validation` dari workflow karena versi sudah sesuai.
 
 ---
 
 ## 3. Ringkasan File Konfigurasi Akhir
+
+> **PENTING**: Project ini menggunakan **Kotlin DSL (`.gradle.kts`)** bukan Groovy (`.gradle`). Pastikan TIDAK ada file `.gradle` tanpa ekstensi `.kts` di folder `android/`.
 
 ### A. `.github/workflows/build_apk.yml`
 ```yaml
@@ -163,7 +168,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK Release
-        run: flutter build apk --release --android-skip-build-dependency-validation
+        run: flutter build apk --release
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -172,16 +177,17 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
 ```
 
-### B. `android/settings.gradle`
-```groovy
+### B. `android/settings.gradle.kts`
+```kotlin
 pluginManagement {
-    def flutterSdkPath = {
-        def properties = new Properties()
-        file("local.properties").withInputStream { properties.load(it) }
-        def flutterSdkPath = properties.getProperty("flutter.sdk")
-        assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
-        return flutterSdkPath
-    }()
+    val flutterSdkPath =
+        run {
+            val properties = java.util.Properties()
+            file("local.properties").inputStream().use { properties.load(it) }
+            val flutterSdkPath = properties.getProperty("flutter.sdk")
+            require(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
+            flutterSdkPath
+        }
 
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
@@ -193,12 +199,12 @@ pluginManagement {
 }
 
 plugins {
-    id "dev.flutter.flutter-plugin-loader" version "1.0.0"
-    id "com.android.application" version "8.5.2" apply false
-    id "org.jetbrains.kotlin.android" version "1.9.24" apply false
+    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+    id("com.android.application") version "9.3.1" apply false
+    id("org.jetbrains.kotlin.android") version "2.4.20" apply false
 }
 
-include ":app"
+include(":app")
 ```
 
 ### C. `android/gradle/wrapper/gradle-wrapper.properties`
@@ -207,15 +213,14 @@ distributionBase=GRADLE_USER_HOME
 distributionPath=wrapper/dists
 zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-all.zip
+distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-all.zip
 ```
 
-### D. `android/app/build.gradle`
-```groovy
+### D. `android/app/build.gradle.kts`
+```kotlin
 plugins {
-    id "com.android.application"
-    id "kotlin-android"
-    id "dev.flutter.flutter-gradle-plugin"
+    id("com.android.application")
+    id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
@@ -228,10 +233,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     defaultConfig {
         applicationId = "com.example.smk_puger_digital"
         minSdk = flutter.minSdkVersion
@@ -242,8 +243,14 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.debug
+            signingConfig = signingConfigs.getByName("debug")
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
@@ -252,8 +259,8 @@ flutter {
 }
 ```
 
-### E. `android/build.gradle`
-```groovy
+### E. `android/build.gradle.kts`
+```kotlin
 allprojects {
     repositories {
         google()
@@ -261,13 +268,22 @@ allprojects {
     }
 }
 
-rootProject.buildDir = "../build"
+val newBuildDir: Directory =
+    rootProject.layout.buildDirectory
+        .dir("../../build")
+        .get()
+rootProject.layout.buildDirectory.value(newBuildDir)
+
 subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
+    project.layout.buildDirectory.value(newSubprojectBuildDir)
+}
+subprojects {
+    project.evaluationDependsOn(":app")
 }
 
-tasks.register("clean", Delete) {
-    delete rootProject.buildDir
+tasks.register<Delete>("clean") {
+    delete(rootProject.layout.buildDirectory)
 }
 ```
 
@@ -278,7 +294,7 @@ tasks.register("clean", Delete) {
 1. **Kirim Perubahan ke GitHub**:
    ```bash
    git add -A
-   git commit -m "Fix workflow issues: upgrade Gradle 8.4, AGP 8.3.2, Kotlin 1.9.24, and clean config"
+   git commit -m "fix: use Kotlin DSL gradle configs with AGP 9.3.1, Kotlin 2.4.20, Gradle 9.3.1"
    git push origin main
    ```
 2. **Pantau Proses Build**:
