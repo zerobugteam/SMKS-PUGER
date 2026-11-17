@@ -113,6 +113,20 @@ Selama pengujian pipeline build otomatis, ditemukan beberapa kendala beruntun ya
 
 ---
 
+### Masalah 8: Evaluasi Prematur Gradle (`ApplicationExtension.getDefaultConfig()`)
+* **Gejala**: Build gagal saat membaca `android/build.gradle` baris 13:
+  ```text
+  * Where:
+  Build file 'android/build.gradle' line: 13
+  * What went wrong:
+  A problem occurred evaluating root project 'android'.
+  > 'com.android.build.api.dsl.ApplicationDefaultConfig com.android.build.api.dsl.ApplicationExtension.getDefaultConfig()'
+  ```
+* **Penyebab**: Blok lama `subprojects { project.evaluationDependsOn(":app") }` di root `android/build.gradle` memaksa Gradle mengevaluasi modul `:app` lebih awal secara tidak sinkron sebelum subproject selesai dikonfigurasi. Pada AGP modern (8.x+), pemanggilan prematur ini memicu error internal `ApplicationExtension.getDefaultConfig()`.
+* **Solusi**: Menghapus blok `subprojects { project.evaluationDependsOn(":app") }` dari `android/build.gradle`. Gradle modern sudah otomatis mengelola dependensi antar modul secara deklaratif.
+
+---
+
 ## 3. Ringkasan File Konfigurasi Akhir
 
 ### A. `.github/workflows/build_apk.yml`
@@ -235,6 +249,25 @@ android {
 
 flutter {
     source = "../.."
+}
+```
+
+### E. `android/build.gradle`
+```groovy
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
 }
 ```
 
