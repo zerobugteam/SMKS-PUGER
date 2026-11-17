@@ -125,8 +125,9 @@ Selama pengujian pipeline build otomatis, ditemukan beberapa kendala beruntun ya
 * **Penyebab Sebenarnya**: Semua masalah 4–8 di atas ternyata berakar dari satu masalah fundamental: **project ini memiliki dua set file konfigurasi Gradle yang saling bertabrakan** — file Groovy (`.gradle`) dan file Kotlin DSL (`.gradle.kts`). File `.gradle.kts` asli yang di-generate oleh Flutter berisi versi yang benar (AGP 9.3.1, Kotlin 2.4.20, Gradle 9.3.1), sedangkan file `.gradle` lama menggunakan versi usang (AGP 7.3.0, Kotlin 1.7.10, Gradle 7.6.3). Ketika kedua format ada, Gradle memprioritaskan `.gradle.kts`. Ketika `.gradle.kts` dihapus, `.gradle` yang digunakan malah inkompatibel dengan Flutter 3.50.0 stable.
 * **Solusi Final**:
   1. **Menghapus semua file `.gradle` (Groovy)**: `settings.gradle`, `build.gradle`, `app/build.gradle`.
-  2. **Mengembalikan file `.gradle.kts` (Kotlin DSL)** asli yang di-generate oleh Flutter dengan versi: **AGP `9.3.1`**, **Kotlin `2.4.20`**, **Gradle `9.3.1`**.
-  3. **Menghapus flag bypass** `--android-skip-build-dependency-validation` dari workflow karena versi sudah sesuai.
+  2. **Mengembalikan file `.gradle.kts` (Kotlin DSL)** asli yang di-generate oleh Flutter dengan versi: **AGP `9.3.1`**, **Kotlin `2.4.20`**, **Gradle `9.5.0`** (AGP 9.3.1 mewajibkan Gradle 9.5.0).
+  3. **Conditional Import `dart:html`**: Memisahkan `web_camera_dialog.dart` menggunakan conditional export (`stub` vs `web`) agar kompilasi Android tidak crash saat membaca library browser Web.
+  4. **Menghapus flag bypass** `--android-skip-build-dependency-validation` dari workflow karena versi sudah sesuai.
 
 ---
 
