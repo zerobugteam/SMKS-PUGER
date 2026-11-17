@@ -83,6 +83,21 @@ Selama pengujian pipeline build otomatis, ditemukan beberapa kendala beruntun ya
 
 ---
 
+### Masalah 6: Inkompatibilitas AGP 8.3.2 dengan Kotlin Gradle Plugin (`lower than the minimum supported 8.5.2`)
+* **Gejala**: Build melempar error:
+  ```text
+  > Android Gradle Plugin Version Incompatible with Kotlin Gradle Plugin
+  Kotlin Gradle Plugin <-> Android Gradle Plugin compatibility issue:
+  The applied Android Gradle Plugin version (8.3.2) is lower than the minimum supported 8.5.2.
+  Solution: Please update the Android Gradle Plugin version to at least 8.5.2.
+  ```
+* **Penyebab**: Kotlin Gradle Plugin yang digunakan oleh Flutter SDK stable mewajibkan Android Gradle Plugin (AGP) minimal versi `8.5.2`. Sedangkan AGP 8.5.2 mewajibkan Gradle Wrapper minimal versi `8.7`.
+* **Solusi**:
+  1. Upgrade AGP dari `8.3.2` ke **`8.5.2`** di `android/settings.gradle`.
+  2. Upgrade Gradle Wrapper dari `8.4` ke **`8.7`** (`gradle-8.7-all.zip`) di `android/gradle/wrapper/gradle-wrapper.properties`.
+
+---
+
 ## 3. Ringkasan File Konfigurasi Akhir
 
 ### A. `.github/workflows/build_apk.yml`
@@ -150,7 +165,7 @@ pluginManagement {
 
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
-    id "com.android.application" version "8.3.2" apply false
+    id "com.android.application" version "8.5.2" apply false
     id "org.jetbrains.kotlin.android" version "1.9.24" apply false
 }
 
@@ -163,7 +178,7 @@ distributionBase=GRADLE_USER_HOME
 distributionPath=wrapper/dists
 zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-all.zip
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-all.zip
 ```
 
 ### D. `android/app/build.gradle`
