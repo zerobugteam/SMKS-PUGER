@@ -87,33 +87,6 @@ SMKS-PUGER/
 
 ---
 
-## 👥 Tim & Kontributor (Collaborators)
-
-Project ini dikembangkan dan dikelola oleh:
-
-<div align="left">
-  <table>
-    <tr>
-      <td align="center" width="120">
-        <a href="https://github.com/Faraysz">
-          <img src="https://github.com/Faraysz.png?size=80" width="80" height="80" style="border-radius: 50%;" alt="Faraysz"><br>
-          <sub><b>Faraysz</b></sub>
-        </a><br>
-        <sub>Developer / Collaborator</sub>
-      </td>
-      <td align="center" width="120">
-        <a href="https://github.com/zerobugteam">
-          <img src="https://github.com/zerobugteam.png?size=80" width="80" height="80" style="border-radius: 50%;" alt="ZeroBug Team"><br>
-          <sub><b>ZeroBug Team</b></sub>
-        </a><br>
-        <sub>Core Organization</sub>
-      </td>
-    </tr>
-  </table>
-</div>
-
----
-
 ## 📄 Lisensi
 
 Project ini dilisensikan di bawah lisensi MIT - lihat file [LICENSE](LICENSE) untuk detail lengkap.
