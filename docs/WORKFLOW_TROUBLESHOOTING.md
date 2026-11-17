@@ -98,6 +98,21 @@ Selama pengujian pipeline build otomatis, ditemukan beberapa kendala beruntun ya
 
 ---
 
+### Masalah 7: Flutter Dependency Validation Check (`Gradle version 8.7.0 is lower than Flutter's minimum supported version of 9.3.1`)
+* **Gejala**: Kompilasi terhenti oleh plugin Flutter (`dev.flutter.flutter-gradle-plugin`):
+  ```text
+  > Error: Your project's Gradle version (8.7.0) is lower than Flutter's minimum supported version of 9.3.1. Please upgrade your Gradle version. 
+    Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+  ```
+* **Penyebab**: Flutter SDK stable modern menyertakan pemeriksaan ketat terhadap kompatibilitas versi Gradle/AGP default.
+* **Solusi**: Menambahkan flag resmi `--android-skip-build-dependency-validation` pada langkah build APK di workflow:
+  ```yaml
+  - name: Build APK Release
+    run: flutter build apk --release --android-skip-build-dependency-validation
+  ```
+
+---
+
 ## 3. Ringkasan File Konfigurasi Akhir
 
 ### A. `.github/workflows/build_apk.yml`
@@ -134,7 +149,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK Release
-        run: flutter build apk --release
+        run: flutter build apk --release --android-skip-build-dependency-validation
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
