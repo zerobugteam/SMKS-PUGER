@@ -17,7 +17,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'          # ← UBAH DARI 17 JADI 21 (PENTING!)
           cache: 'gradle'
 
       - name: Set up Flutter
